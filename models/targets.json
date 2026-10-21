@@ -1,0 +1,16 @@
+{
+  "Elephant": {
+    "trunkLocal": [
+      0.0,
+      1.45,
+      -2.36
+    ],
+    "radius": 0.22,
+    "headLocal": [
+      0.0,
+      1.62,
+      -1.05
+    ],
+    "headRadius": 0.75
+  }
+}

@@ -1,0 +1,1211 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<title>香蕉神射手：餵飽這隻巨象！🍌🐘</title>
+<style>
+:root {
+  --accent: #f59e0b;
+  --accent-glow: #fbbf24;
+  --green: #10b981;
+  --red: #ef4444;
+  --panel: rgba(18, 22, 28, 0.88);
+}
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; height: 100%; overflow: hidden;
+  background: radial-gradient(circle at 50% 25%, #60a5fa 0%, #1e3a8a 100%);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Noto Sans TC", sans-serif;
+  touch-action: none; user-select: none; -webkit-user-select: none;
+}
+canvas { display: block; width: 100%; height: 100%; }
+
+/* HUD Header */
+#hud {
+  position: fixed; left: 0; right: 0; top: 0;
+  padding: 16px 20px;
+  color: #fff; pointer-events: none;
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 16px; font-weight: 700;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.7);
+  z-index: 20;
+}
+.badge {
+  background: rgba(0,0,0,0.45);
+  padding: 6px 14px; border-radius: 20px;
+  border: 1px solid rgba(255,255,255,0.25);
+  backdrop-filter: blur(8px);
+}
+#hud b { color: var(--accent-glow); font-size: 18px; }
+
+/* Slingshot Power Indicator */
+#slingshot-ui {
+  position: fixed; left: 24px; bottom: 32px;
+  color: #fff; pointer-events: none;
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  z-index: 20;
+}
+#power-bar-wrap {
+  width: 18px; height: 150px;
+  background: rgba(0,0,0,0.5);
+  border: 2px solid rgba(255,255,255,0.8);
+  border-radius: 12px; overflow: hidden;
+  position: relative;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+}
+#power-bar {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  height: 0%;
+  background: linear-gradient(to top, #10b981, #f59e0b, #ef4444);
+  transition: height 0.05s ease-out;
+}
+#power-label { font-size: 13px; font-weight: 800; letter-spacing: 1px; }
+
+/* Wind & Weather */
+#wind-badge {
+  position: fixed; left: 50%; top: 68px; transform: translateX(-50%);
+  background: rgba(14, 165, 233, 0.35);
+  color: #e0f2fe; border: 1px solid #7dd3fc;
+  padding: 6px 18px; border-radius: 20px;
+  font-size: 15px; font-weight: 800;
+  display: none; backdrop-filter: blur(6px);
+  z-index: 20;
+}
+
+/* Toast Message */
+#toast {
+  position: fixed; left: 50%; top: 38%; transform: translate(-50%, -50%) scale(0.8);
+  color: #fff; font-size: 34px; font-weight: 900;
+  text-shadow: 0 4px 16px rgba(0,0,0,0.8);
+  pointer-events: none; opacity: 0; transition: transform 0.2s cubic-bezier(0.18, 0.89, 0.32, 1.28), opacity 0.2s;
+  text-align: center; white-space: nowrap; z-index: 30;
+}
+#toast.pop { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
+
+/* Combo Counter */
+#combo {
+  position: fixed; right: 24px; top: 76px;
+  font-size: 24px; font-weight: 900; color: #fde047;
+  text-shadow: 0 2px 10px rgba(0,0,0,0.8);
+  opacity: 0; transform: scale(0.8); transition: all 0.2s;
+  pointer-events: none; z-index: 20;
+}
+#combo.show { opacity: 1; transform: scale(1.2); }
+
+/* Aiming Crosshair hint */
+#crosshair {
+  position: fixed; width: 44px; height: 44px;
+  border: 3px dashed rgba(255,255,255,0.7);
+  border-radius: 50%; pointer-events: none;
+  transform: translate(-50%, -50%); display: none;
+  animation: spin 6s linear infinite; z-index: 10;
+}
+@keyframes spin { 100% { transform: translate(-50%, -50%) rotate(360deg); } }
+
+/* Controls: Mobile Launch Button & Mute */
+#hold-btn {
+  position: fixed; right: 24px; bottom: calc(28px + env(safe-area-inset-bottom));
+  width: 90px; height: 90px; border-radius: 50%;
+  border: 3px solid rgba(255,255,255,0.85);
+  background: radial-gradient(circle at 35% 35%, #fbbf24, #d97706);
+  color: #fff; font-size: 16px; font-weight: 900;
+  box-shadow: 0 6px 0 #92400e, 0 10px 20px rgba(0,0,0,0.4);
+  cursor: pointer; outline: none; z-index: 25;
+}
+#hold-btn:active, #hold-btn.pressed {
+  transform: translateY(4px);
+  box-shadow: 0 2px 0 #92400e, 0 4px 10px rgba(0,0,0,0.4);
+}
+#mute-btn {
+  width: 40px; height: 40px; border-radius: 50%;
+  border: 1px solid rgba(255,255,255,0.3);
+  background: rgba(0,0,0,0.4); color: #fff; font-size: 18px;
+  cursor: pointer; backdrop-filter: blur(6px); margin-right: 10px;
+}
+
+/* Camera View Controls */
+#cam-presets {
+  position: fixed; left: 50%; top: 16px; transform: translateX(-50%);
+  display: flex; gap: 8px; z-index: 25; pointer-events: auto;
+}
+.cam-btn {
+  background: rgba(0,0,0,0.55); border: 1px solid rgba(255,255,255,0.3);
+  color: #fff; padding: 6px 13px; border-radius: 20px;
+  font-size: 13px; font-weight: 700; cursor: pointer;
+  backdrop-filter: blur(6px); transition: all 0.15s;
+}
+.cam-btn:hover, .cam-btn.active {
+  background: #f59e0b; border-color: #fbbf24; transform: scale(1.04);
+}
+
+/* Subtitle Box for Gemini TTS Voice Lines */
+#subtitle-box {
+  position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom));
+  transform: translateX(-50%) translateY(20px);
+  background: rgba(15, 23, 42, 0.92);
+  border: 2px solid #f59e0b;
+  border-radius: 16px; padding: 10px 24px;
+  color: #fff; text-align: center;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  backdrop-filter: blur(8px);
+  pointer-events: none; opacity: 0;
+  transition: all 0.25s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+  z-index: 40; max-width: 90vw;
+}
+#subtitle-box.show {
+  opacity: 1; transform: translateX(-50%) translateY(0);
+}
+#speaker-tag {
+  font-size: 13px; font-weight: 900; color: #fbbf24;
+  letter-spacing: 1px; margin-bottom: 2px;
+}
+#sub-tai-lo {
+  font-size: 19px; font-weight: 800; color: #fef08a; margin: 3px 0;
+}
+#sub-zh {
+  font-size: 14px; font-weight: 600; color: #cbd5e1;
+}
+
+/* Modals (Menu / Win / Over) */
+#modal {
+  position: fixed; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  background: rgba(10, 15, 24, 0.88);
+  color: #fff; text-align: center; padding: 28px;
+  backdrop-filter: blur(10px); z-index: 50;
+  opacity: 1; transition: opacity 0.3s;
+}
+#modal.hidden { opacity: 0; pointer-events: none; display: none !important; }
+#modal h1 {
+  font-size: 34px; margin: 0 0 12px;
+  background: linear-gradient(135deg, #fbbf24, #f59e0b, #ec4899);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+#modal p {
+  font-size: 16px; line-height: 1.8; color: #e2e8f0;
+  margin: 0 0 24px; max-width: 460px;
+}
+#modal .score-box {
+  background: rgba(255,255,255,0.08); border-radius: 16px;
+  padding: 16px 28px; margin-bottom: 24px; border: 1px solid rgba(255,255,255,0.15);
+}
+#modal button.primary {
+  font-size: 19px; padding: 14px 44px; border-radius: 36px;
+  border: none; background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: #fff; font-weight: 800; cursor: pointer;
+  box-shadow: 0 6px 18px rgba(245, 158, 11, 0.45);
+  transition: transform 0.1s, box-shadow 0.1s;
+}
+#modal button.primary:hover { transform: scale(1.05); }
+#modal button.primary:active { transform: scale(0.97); }
+
+/* Trajectory guide dot */
+.traj-dot { pointer-events: none; }
+</style>
+</head>
+<body>
+
+<div id="hud">
+  <div style="display:flex; align-items:center; pointer-events:auto;">
+    <button id="mute-btn">🔊</button>
+    <span id="lvl-badge" class="badge">第 1 關｜幼幼班餵食</span>
+  </div>
+  <div id="cam-presets">
+    <button id="cam-aim" class="cam-btn active">🎯 投擲視角</button>
+    <button id="cam-monkey" class="cam-btn">🐒 小猴視角</button>
+    <button id="cam-orbit" class="cam-btn">🔄 360°旋轉</button>
+  </div>
+  <span class="badge">進球 <b id="score-made">0</b> / <span id="score-need">3</span>　剩 <b id="score-left">5</b> 球</span>
+</div>
+
+<div id="subtitle-box">
+  <div id="speaker-tag">🐘 大象說道：</div>
+  <div id="sub-tai-lo">Phah tio̍h thâu--ah la!</div>
+  <div id="sub-zh">打到頭了啦！誰丟的！？</div>
+</div>
+
+<div id="wind-badge">🌬️ 側風來襲：向右偏 +1.2m</div>
+<div id="combo">COMBO x2!</div>
+<div id="toast">太神啦！</div>
+<div id="crosshair"></div>
+
+<div id="slingshot-ui">
+  <div id="power-bar-wrap"><div id="power-bar"></div></div>
+  <div id="power-label">力道</div>
+</div>
+
+<button id="hold-btn">投擲<br>香蕉</button>
+
+<!-- Start / Settlement Modal -->
+<div id="modal">
+  <h1 id="m-title">香蕉神射手 🍌🐘</h1>
+  <p id="m-desc">大象肚子好餓！滑動螢幕拉出拋物線，或按住蓄力按鈕，把金黃香蕉精準投進大象高舉的長鼻子裡！</p>
+  <div id="m-stats" class="score-box" style="display:none;"></div>
+  <button id="go" class="primary">載入中...</button>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+// Global error logger for headless tests
+window.__errs = [];
+window.addEventListener('error', e => window.__errs.push(String(e.message)));
+
+const $ = s => document.querySelector(s);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+// ================================================================
+// ① Gemini 3.8 Flash TTS 配音資料與字幕系統
+// ================================================================
+const VOICE_DATA = {
+  hit_head: {
+    speaker: '🐘 大象生氣道：',
+    tailo: 'Phah tio̍h thâu--ah la! Kòng tio̍h thâu--ah la!',
+    zh: '打到頭了啦！誰丟的！？💥'
+  },
+  overshoot: {
+    speaker: '🐘 大象嘲笑說：',
+    tailo: 'Lí kám ē-hiáu tàn--ah!? Tàn kah hiah-nī hn̄g!',
+    zh: '你會不會丟啊！？丟那麼遠！💨'
+  },
+  dunk: {
+    speaker: '🐘 大象嚼著香蕉：',
+    tailo: 'O-hó! Tsit ki tsioh-tsia̍h kài tiⁿ! Tsán--lah!',
+    zh: '喔好！這根香蕉蓋甜！讚啦！🍌✨'
+  },
+  burp: {
+    speaker: '🐘 大象打大飽嗝：',
+    tailo: '嗝～～！Tsa̍p hun pá! Phah tsit ê tuā phú-kik!',
+    zh: '嗝～～！十分飽！打一個大飽嗝！💨'
+  },
+  monkey_start: {
+    speaker: '🐒 小猴搭檔：',
+    tailo: '餵象大作戰，香蕉準備～發射！',
+    zh: '餵象大作戰，香蕉準備～發射！🚀'
+  },
+  monkey_cheer: {
+    speaker: '🐒 小猴歡呼：',
+    tailo: '讚啦！神射手！大象吃到了！',
+    zh: '讚啦！神射手！大象吃到了！🎉'
+  },
+  monkey_miss: {
+    speaker: '🐒 小猴抓頭：',
+    tailo: '哎呀！手滑了啦！再來一根！',
+    zh: '哎呀！手滑了啦！再來一根！😅'
+  }
+};
+
+const voiceAudios = {};
+Object.keys(VOICE_DATA).forEach(key => {
+  const a = new Audio(`voice/${key}.mp3`);
+  a.preload = 'auto';
+  voiceAudios[key] = a;
+});
+
+let currentPlayingAudio = null;
+let subtitleTimer = null;
+
+function playVoice(name) {
+  if (sfx.muted) return;
+  const data = VOICE_DATA[name];
+  if (!data) return;
+
+  // Show visual subtitle box with Tai-lo & Chinese
+  $('#speaker-tag').textContent = data.speaker;
+  $('#sub-tai-lo').textContent = data.tailo;
+  $('#sub-zh').textContent = data.zh;
+  const subBox = $('#subtitle-box');
+  subBox.classList.add('show');
+  clearTimeout(subtitleTimer);
+  subtitleTimer = setTimeout(() => subBox.classList.remove('show'), 3800);
+
+  // Play audio
+  try {
+    if (currentPlayingAudio) {
+      currentPlayingAudio.pause();
+      currentPlayingAudio.currentTime = 0;
+    }
+    const a = voiceAudios[name];
+    if (a) {
+      a.currentTime = 0;
+      a.play().catch(e => console.log('Audio error:', e));
+      currentPlayingAudio = a;
+    }
+  } catch (e) {}
+}
+
+// ================================================================
+// ① CONFIG & 關卡設計表
+// ================================================================
+const LEVELS = [
+  {
+    name: '第 1 關｜幼幼班餵食秀',
+    dist: 3.4,
+    throws: 5,
+    need: 3,
+    swaySpeed: 0,
+    swayAmp: 0,
+    windChance: 0,
+    hasGuide: true,
+    desc: '大象乖乖定點張開長鼻子！拉開拋物線輔助線，輕鬆餵食。'
+  },
+  {
+    name: '第 2 關｜森巴搖擺舞',
+    dist: 3.8,
+    throws: 6,
+    need: 4,
+    swaySpeed: 1.6,
+    swayAmp: 0.65,
+    windChance: 0,
+    hasGuide: true,
+    desc: '大象開始開心踩點左右搖擺！算好預判時間差投出香蕉！'
+  },
+  {
+    name: '第 3 關｜大耳旋風陣',
+    dist: 4.2,
+    throws: 6,
+    need: 4,
+    swaySpeed: 2.2,
+    swayAmp: 0.85,
+    windChance: 0.85,
+    hasGuide: false,
+    desc: '大耳朵扇動引發側風！拋物線輔助已關閉，全憑手感！'
+  },
+  {
+    name: '第 4 關｜暴走飽嗝逆襲',
+    dist: 4.6,
+    throws: 7,
+    need: 5,
+    swaySpeed: 3.0,
+    swayAmp: 1.1,
+    windChance: 1.0,
+    burpHazard: true,
+    hasGuide: false,
+    desc: '大象快吃飽了！左右橫移加快，還會隨機打出巨大飽嗝衝擊波！'
+  }
+];
+
+// Physics Constants
+const G = 9.8;
+const BANANA_R = 0.09;
+const LAUNCH_POS = new THREE.Vector3(-0.6, 0.95, 1.2); // Near monkey's right hand
+
+// ================================================================
+// ② Web Audio 程式化音效與背景音樂（零外部音檔依賴）
+// ================================================================
+class AudioManager {
+  constructor() {
+    this.ctx = null;
+    this.muted = false;
+    this.masterGain = null;
+    this.bgmTimer = null;
+    this.step = 0;
+  }
+  init() {
+    if (this.ctx) return;
+    const AC = window.AudioContext || window.webkitAudioContext;
+    this.ctx = new AC();
+    this.masterGain = this.ctx.createGain();
+    this.masterGain.gain.value = 0.4;
+    this.masterGain.connect(this.ctx.destination);
+    this.startBgm();
+  }
+  toggleMute() {
+    this.muted = !this.muted;
+    if (this.masterGain) this.masterGain.gain.value = this.muted ? 0 : 0.4;
+    $('#mute-btn').textContent = this.muted ? '🔇' : '🔊';
+  }
+  // Banana throw whoosh
+  whoosh() {
+    if (!this.ctx || this.muted) return;
+    const osc = this.ctx.createOscillator();
+    const g = this.ctx.createGain();
+    osc.type = 'sine';
+    const now = this.ctx.currentTime;
+    osc.frequency.setValueAtTime(260, now);
+    osc.frequency.exponentialRampToValueAtTime(750, now + 0.12);
+    g.gain.setValueAtTime(0.4, now);
+    g.gain.exponentialRampToValueAtTime(0.01, now + 0.16);
+    osc.connect(g); g.connect(this.masterGain);
+    osc.start(now); osc.stop(now + 0.17);
+  }
+  // Swish / Dunk in Trunk: Elephant trumpet fanfare!
+  dunk() {
+    if (!this.ctx || this.muted) return;
+    const now = this.ctx.currentTime;
+    // Multi-voice brass horn
+    [520, 650, 780, 1040].forEach((freq, idx) => {
+      const osc = this.ctx.createOscillator();
+      const g = this.ctx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(freq * 0.9, now);
+      osc.frequency.exponentialRampToValueAtTime(freq, now + 0.08);
+      g.gain.setValueAtTime(0.18, now);
+      g.gain.exponentialRampToValueAtTime(0.001, now + 0.35 + idx * 0.05);
+      osc.connect(g); g.connect(this.masterGain);
+      osc.start(now + idx * 0.04);
+      osc.stop(now + 0.45);
+    });
+  }
+  // Bonk on head
+  bonk() {
+    if (!this.ctx || this.muted) return;
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const g = this.ctx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(440, now);
+    osc.frequency.exponentialRampToValueAtTime(90, now + 0.18);
+    g.gain.setValueAtTime(0.5, now);
+    g.gain.exponentialRampToValueAtTime(0.01, now + 0.19);
+    osc.connect(g); g.connect(this.masterGain);
+    osc.start(now); osc.stop(now + 0.2);
+  }
+  // Burp effect
+  burp() {
+    if (!this.ctx || this.muted) return;
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const g = this.ctx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(140, now);
+    osc.frequency.linearRampToValueAtTime(90, now + 0.15);
+    osc.frequency.linearRampToValueAtTime(120, now + 0.35);
+    osc.frequency.linearRampToValueAtTime(60, now + 0.6);
+    g.gain.setValueAtTime(0.45, now);
+    g.gain.exponentialRampToValueAtTime(0.01, now + 0.65);
+    osc.connect(g); g.connect(this.masterGain);
+    osc.start(now); osc.stop(now + 0.68);
+  }
+  // Level Clear
+  fanfare() {
+    if (!this.ctx || this.muted) return;
+    const now = this.ctx.currentTime;
+    [440, 554, 659, 880].forEach((freq, idx) => {
+      const osc = this.ctx.createOscillator();
+      const g = this.ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.value = freq;
+      g.gain.setValueAtTime(0.2, now + idx * 0.1);
+      g.gain.exponentialRampToValueAtTime(0.01, now + idx * 0.1 + 0.3);
+      osc.connect(g); g.connect(this.masterGain);
+      osc.start(now + idx * 0.1);
+      osc.stop(now + idx * 0.1 + 0.35);
+    });
+  }
+  // Background procedural upbeat jungle loop
+  startBgm() {
+    if (this.bgmTimer) return;
+    const bpm = 118;
+    const beatInterval = 60 / bpm / 2; // 16th-note approx
+    const bassScale = [110, 130.8, 146.8, 164.8, 196.0];
+    
+    this.bgmTimer = setInterval(() => {
+      if (this.muted || !this.ctx || state !== 'play') return;
+      const now = this.ctx.currentTime;
+      // Kick & Bass every 4 steps
+      if (this.step % 4 === 0) {
+        const osc = this.ctx.createOscillator();
+        const g = this.ctx.createGain();
+        osc.frequency.setValueAtTime(150, now);
+        osc.frequency.exponentialRampToValueAtTime(45, now + 0.08);
+        g.gain.setValueAtTime(0.25, now);
+        g.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+        osc.connect(g); g.connect(this.masterGain);
+        osc.start(now); osc.stop(now + 0.11);
+      }
+      // Marimba tropical note
+      if (this.step % 2 === 0) {
+        const osc = this.ctx.createOscillator();
+        const g = this.ctx.createGain();
+        osc.type = 'triangle';
+        const note = bassScale[(this.step / 2) % bassScale.length] * 2;
+        osc.frequency.setValueAtTime(note, now);
+        g.gain.setValueAtTime(0.08, now);
+        g.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+        osc.connect(g); g.connect(this.masterGain);
+        osc.start(now); osc.stop(now + 0.13);
+      }
+      this.step = (this.step + 1) % 16;
+    }, beatInterval * 1000);
+  }
+}
+const sfx = new AudioManager();
+$('#mute-btn').onclick = () => sfx.toggleMute();
+
+// ================================================================
+// ③ Three.js 場景建構
+// ================================================================
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.1;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.prepend(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x38bdf8); // Sky blue
+scene.fog = new THREE.Fog(0x38bdf8, 8, 25);
+
+// Camera
+const camera = new THREE.PerspectiveCamera(54, innerWidth / innerHeight, 0.1, 40);
+function fit() {
+  camera.aspect = innerWidth / innerHeight;
+  camera.fov = camera.aspect < 1 ? 62 : 46;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+}
+window.addEventListener('resize', fit);
+fit();
+
+// OrbitControls (Allows rotating screen & viewing monkey or elephant)
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.maxPolarAngle = Math.PI / 2 - 0.05; // Don't go underground
+controls.minDistance = 1.2;
+controls.maxDistance = 14.0;
+
+// Camera Presets
+let camMode = 'aim';
+function setCameraView(mode) {
+  camMode = mode;
+  document.querySelectorAll('.cam-btn').forEach(b => b.classList.remove('active'));
+  $(`#cam-${mode}`)?.classList.add('active');
+
+  if (mode === 'aim') {
+    // Aiming Mode: Camera frames both monkey and elephant
+    controls.enabled = false;
+    camera.position.set(0.35, 1.85, 3.2);
+    controls.target.set(-0.1, 1.2, -1.8);
+    camera.lookAt(controls.target);
+  } else if (mode === 'monkey') {
+    // Close-up on the cute monkey front!
+    controls.enabled = true;
+    camera.position.set(-1.15, 1.0, 2.8);
+    controls.target.set(-1.15, 0.6, 1.4);
+    camera.lookAt(controls.target);
+  } else if (mode === 'orbit') {
+    // 360 Free Orbit: drag anywhere to rotate around the field
+    controls.enabled = true;
+    controls.target.set(0, 1.1, -1.0);
+  }
+}
+
+$('#cam-aim').onclick = (e) => { e.stopPropagation(); const urlCam = new URLSearchParams(location.search).get('cam');
+if (urlCam) {
+  setCameraView(urlCam);
+} else {
+  setCameraView('aim');
+} };
+$('#cam-monkey').onclick = (e) => { e.stopPropagation(); setCameraView('monkey'); };
+$('#cam-orbit').onclick = (e) => { e.stopPropagation(); setCameraView('orbit'); };
+
+const urlCam = new URLSearchParams(location.search).get('cam');
+if (urlCam) {
+  setCameraView(urlCam);
+} else {
+  setCameraView('aim');
+}
+
+// Lighting
+const hemi = new THREE.HemisphereLight(0xfffbeb, 0x38bdf8, 0.7);
+scene.add(hemi);
+
+const sun = new THREE.DirectionalLight(0xfffaed, 1.8);
+sun.position.set(3.5, 6.0, 4.0);
+sun.castShadow = true;
+sun.shadow.mapSize.set(1024, 1024);
+sun.shadow.camera.near = 0.5;
+sun.shadow.camera.far = 15;
+Object.assign(sun.shadow.camera, { left: -3.5, right: 3.5, top: 3.5, bottom: -3.5 });
+scene.add(sun);
+
+// Shadow plane
+const groundMat = new THREE.MeshStandardMaterial({
+  color: 0x4ade80, // Safari lush green
+  roughness: 0.8,
+  metalness: 0.05
+});
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(30, 30).rotateX(-Math.PI / 2), groundMat);
+ground.position.y = 0;
+ground.receiveShadow = true;
+scene.add(ground);
+
+// Shadow Receiver for soft shadows
+const shadowPl = new THREE.Mesh(
+  new THREE.PlaneGeometry(16, 16).rotateX(-Math.PI / 2),
+  new THREE.ShadowMaterial({ opacity: 0.28 })
+);
+shadowPl.position.y = 0.002;
+shadowPl.receiveShadow = true;
+scene.add(shadowPl);
+
+// ================================================================
+// ④ 載入 3D 模型 (Elephant & Monkey)
+// ================================================================
+const loader = new GLTFLoader();
+let elephantRoot = null;
+let monkeyRoot = null;
+let elephantTrunkTip = new THREE.Vector3(0, 1.45, -2.36); // In elephant's local space
+let elephantHead = new THREE.Vector3(0, 1.62, -1.05);
+
+async function loadModels() {
+  const [eleGltf, monGltf] = await Promise.all([
+    loader.loadAsync('models/elephant.glb'),
+    loader.loadAsync('models/monkey.glb')
+  ]);
+
+  elephantRoot = eleGltf.scene;
+  elephantRoot.traverse(o => {
+    if (o.isMesh) {
+      o.castShadow = true;
+      o.receiveShadow = true;
+    }
+  });
+  // Elephant faces the player (facing +Z in world space)
+  elephantRoot.rotation.y = Math.PI;
+  scene.add(elephantRoot);
+
+  monkeyRoot = monGltf.scene;
+  monkeyRoot.traverse(o => {
+    if (o.isMesh) {
+      o.castShadow = true;
+      o.receiveShadow = true;
+    }
+  });
+  // Position monkey clearly visible in the foreground left, facing towards camera & elephant!
+  monkeyRoot.position.set(-1.15, -0.05, 1.4);
+  monkeyRoot.rotation.y = Math.PI * 0.85;
+  monkeyRoot.scale.setScalar(0.78);
+  scene.add(monkeyRoot);
+
+  $('#go').textContent = '開始遊戲！';
+  $('#go').onclick = startGame;
+  if (new URLSearchParams(location.search).has('auto')) {
+    startGame();
+  }
+}
+
+// Procedural 3D Banana Mesh Generator
+function createBananaMesh() {
+  const pts = [
+    new THREE.Vector3(0, -0.16, -0.05),
+    new THREE.Vector3(0, -0.08, 0.04),
+    new THREE.Vector3(0, 0.08, 0.05),
+    new THREE.Vector3(0, 0.16, -0.03)
+  ];
+  const curve = new THREE.CatmullRomCurve3(pts);
+  const geom = new THREE.TubeGeometry(curve, 16, 0.042, 8, false);
+  const mat = new THREE.MeshStandardMaterial({
+    color: 0xfacc15,
+    roughness: 0.3,
+    metalness: 0.05
+  });
+  const m = new THREE.Mesh(geom, mat);
+  m.castShadow = true;
+  return m;
+}
+
+// Particle system for Confetti / Sparkles
+const particles = [];
+function spawnConfetti(pos) {
+  const colors = [0xf59e0b, 0xef4444, 0x10b981, 0x3b82f6, 0xec4899];
+  for (let i = 0; i < 28; i++) {
+    const pMat = new THREE.MeshBasicMaterial({ color: colors[i % colors.length] });
+    const pGeom = new THREE.PlaneGeometry(0.06, 0.06);
+    const m = new THREE.Mesh(pGeom, pMat);
+    m.position.copy(pos);
+    scene.add(m);
+    const vel = new THREE.Vector3(
+      (Math.random() - 0.5) * 3.5,
+      Math.random() * 3.8 + 1.5,
+      (Math.random() - 0.5) * 3.5
+    );
+    particles.push({ m, vel, rot: Math.random() * 6, life: 1.0 });
+  }
+}
+
+// ================================================================
+// ⑤ 遊戲狀態與物理機制
+// ================================================================
+let state = 'menu';
+let levelIdx = 0;
+let made = 0;
+let left = 0;
+let combo = 0;
+let currentWind = 0;
+let gameTime = 0;
+
+let charging = false;
+let power = 0;
+let powerDir = 1;
+let aimX = 0;
+
+let banana = null;
+const bananas = [];
+
+// Trajectory Line Guide
+const trajPoints = 25;
+const trajGeom = new THREE.BufferGeometry();
+const trajPositions = new Float32Array(trajPoints * 3);
+trajGeom.setAttribute('position', new THREE.BufferAttribute(trajPositions, 3));
+const trajLine = new THREE.Line(
+  trajGeom,
+  new THREE.LineDashedMaterial({ color: 0xffffff, dashSize: 0.15, gapSize: 0.1, linewidth: 2 })
+);
+trajLine.visible = false;
+scene.add(trajLine);
+
+function showToast(text, color = '#fff') {
+  const t = $('#toast');
+  t.textContent = text;
+  t.style.color = color;
+  t.classList.add('pop');
+  setTimeout(() => t.classList.remove('pop'), 850);
+}
+
+function updateHud() {
+  const curL = LEVELS[levelIdx];
+  $('#lvl-badge').textContent = curL.name;
+  $('#score-made').textContent = made;
+  $('#score-need').textContent = curL.need;
+  $('#score-left').textContent = left;
+}
+
+function startGame() {
+  sfx.init();
+  $('#modal').classList.add('hidden');
+  initLevel(0);
+}
+
+function initLevel(idx) {
+  levelIdx = idx;
+  const curL = LEVELS[levelIdx];
+  made = 0;
+  left = curL.throws;
+  combo = 0;
+  state = 'play';
+  
+  // Set Elephant initial position downfield
+  if (elephantRoot) {
+    elephantRoot.position.set(0, 0, -curL.dist);
+  }
+  
+  // Wind
+  if (curL.windChance > 0 && Math.random() < curL.windChance) {
+    currentWind = (Math.random() > 0.5 ? 1 : -1) * (0.8 + Math.random() * 0.9);
+    $('#wind-badge').textContent = `🌬️ 象耳扇風：${currentWind > 0 ? '向右' : '向左'} ${Math.abs(currentWind).toFixed(1)}m`;
+    $('#wind-badge').style.display = 'block';
+  } else {
+    currentWind = 0;
+    $('#wind-badge').style.display = 'none';
+  }
+  
+  updateHud();
+  showToast(curL.name, '#fbbf24');
+  setTimeout(() => playVoice('monkey_start'), 600);
+}
+
+// Trajectory calculation
+function getLaunchVelocity(pow, xAim) {
+  const speed = 4.8 + pow * 5.8;
+  const yaw = xAim * 0.45;
+  const pitch = THREE.MathUtils.degToRad(38);
+  return new THREE.Vector3(
+    Math.sin(yaw) * Math.cos(pitch) * speed,
+    Math.sin(pitch) * speed,
+    -Math.cos(yaw) * Math.cos(pitch) * speed
+  );
+}
+
+function updateTrajectory() {
+  const curL = LEVELS[levelIdx];
+  if (!curL.hasGuide || !charging) {
+    trajLine.visible = false;
+    return;
+  }
+  trajLine.visible = true;
+  const vel = getLaunchVelocity(power, aimX);
+  const p = LAUNCH_POS.clone();
+  const v = vel.clone();
+  const dt = 0.05;
+  
+  const arr = trajPositions;
+  for (let i = 0; i < trajPoints; i++) {
+    arr[i * 3 + 0] = p.x;
+    arr[i * 3 + 1] = p.y;
+    arr[i * 3 + 2] = p.z;
+    p.x += v.x * dt + 0.5 * currentWind * dt * dt;
+    p.y += v.y * dt - 0.5 * G * dt * dt;
+    p.z += v.z * dt;
+    v.y -= G * dt;
+    v.x += currentWind * dt;
+  }
+  trajGeom.attributes.position.needsUpdate = true;
+  trajLine.computeLineDistances();
+}
+
+function launchBanana() {
+  if (left <= 0 || state !== 'play') return;
+  const vel = getLaunchVelocity(power, aimX);
+  const m = createBananaMesh();
+  m.position.copy(LAUNCH_POS);
+  scene.add(m);
+
+  banana = {
+    m,
+    vel,
+    spin: new THREE.Vector3(Math.random() * 12 + 6, Math.random() * 10, Math.random() * 6),
+    life: 0,
+    scored: false
+  };
+  bananas.push(banana);
+
+  left--;
+  sfx.whoosh();
+  updateHud();
+
+  // Monkey throw animation
+  if (monkeyRoot) {
+    monkeyRoot.rotation.x = -0.25;
+    setTimeout(() => { if (monkeyRoot) monkeyRoot.rotation.x = 0; }, 180);
+  }
+}
+
+// ================================================================
+// ⑥ 命中判定：在象鼻目標區域座標系進行
+// ================================================================
+function stepBanana(b, dt) {
+  if (!b.m.parent) return;
+  b.life += dt;
+  // Apply physics
+  b.vel.y -= G * dt;
+  b.vel.x += currentWind * dt;
+  b.m.position.addScaledVector(b.vel, dt);
+  b.m.rotation.x += b.spin.x * dt;
+  b.m.rotation.y += b.spin.y * dt;
+  b.m.rotation.z += b.spin.z * dt;
+
+  if (b.scored) {
+    // Shrink into stomach
+    b.m.scale.multiplyScalar(0.92);
+    if (b.m.scale.x < 0.05) {
+      scene.remove(b.m);
+      b.m.geometry.dispose();
+      return;
+    }
+    return;
+  }
+
+  // Hit test against elephant in elephant's local space
+  if (elephantRoot) {
+    const localP = elephantRoot.worldToLocal(b.m.position.clone());
+    
+    // 1. Trunk Opening (The Basket)
+    // Distance to local trunk tip
+    const trunkDist = localP.distanceTo(elephantTrunkTip);
+    if (trunkDist < 0.32) {
+      // GOAL! Swallowed!
+      b.scored = true;
+      made++;
+      combo++;
+      sfx.dunk();
+      playVoice('dunk');
+      spawnConfetti(b.m.position);
+      
+      const praises = ['漂亮進球！🍌', '神準投擲！🎯', '象象吃飽飽！🐘✨', '完美入袋！💫'];
+      const txt = combo > 1 ? `COMBO x${combo}！🔥` : praises[Math.floor(Math.random() * praises.length)];
+      showToast(txt, '#fbbf24');
+      
+      // Elephant happy reaction (belly puffs, slight bounce)
+      elephantRoot.scale.y = 1.06;
+      setTimeout(() => { if (elephantRoot) elephantRoot.scale.y = 1.0; }, 220);
+
+      // Monkey cheer after a short delay
+      if (combo >= 2) {
+        setTimeout(() => playVoice('monkey_cheer'), 1000);
+      }
+
+      // Burp event when combo is high
+      if (combo >= 3 && Math.random() < 0.6) {
+        setTimeout(() => {
+          sfx.burp();
+          playVoice('burp');
+          showToast('💨 大象打了大飽嗝！', '#ef4444');
+        }, 1200);
+      }
+
+      updateHud();
+      checkRoundOver();
+      return;
+    }
+
+    // 2. Head Bonk (Missed trunk, hit face)
+    const headDist = localP.distanceTo(elephantHead);
+    if (headDist < 0.85 && b.m.position.y > 0.6) {
+      if (!b.bonked) {
+        b.bonked = true;
+        sfx.bonk();
+        playVoice('hit_head');
+        combo = 0;
+        showToast('💥 大象：打到頭了啦！', '#ef4444');
+        b.vel.set(
+          (Math.random() - 0.5) * 3,
+          Math.random() * 2 + 1.5,
+          Math.random() * 2 + 2
+        );
+        b.spin.multiplyScalar(2.0);
+      }
+      return;
+    }
+
+    // 3. Overshoot (超過了！你會不會丟啊！！)
+    if (b.m.position.z < (elephantRoot.position.z - 0.7) && !b.overshot && !b.scored && !b.bonked) {
+      b.overshot = true;
+      combo = 0;
+      playVoice('overshoot');
+      showToast('💨 大象：你會不會丟啊！！', '#f87171');
+    }
+  }
+
+  // Floor collision
+  if (b.m.position.y <= 0.08) {
+    b.m.position.y = 0.08;
+    b.vel.y = -b.vel.y * 0.35; // Slight bounce
+    b.vel.x *= 0.6;
+    b.vel.z *= 0.6;
+    b.spin.multiplyScalar(0.7);
+    if (!b.grounded) {
+      b.grounded = true;
+      if (!b.scored && !b.bonked && !b.overshot) {
+        playVoice('monkey_miss');
+      }
+      combo = 0;
+      checkRoundOver();
+    }
+  }
+}
+
+function checkRoundOver() {
+  if (left > 0 || state !== 'play') return;
+  // All bananas thrown, wait for flight to finish
+  setTimeout(() => {
+    const curL = LEVELS[levelIdx];
+    if (made >= curL.need) {
+      // Clear level
+      sfx.fanfare();
+      if (levelIdx + 1 < LEVELS.length) {
+        $('#m-title').textContent = '🎉 關卡通過！';
+        $('#m-desc').textContent = `成功投進 ${made} 根香蕉！大象很滿意！準備進入下一關！`;
+        $('#m-stats').style.display = 'block';
+        $('#m-stats').innerHTML = `<b>本關成果</b>：投進 ${made} / 需要 ${curL.need}`;
+        $('#go').textContent = '挑戰下一關 ➡️';
+        $('#go').onclick = () => {
+          $('#modal').classList.add('hidden');
+          initLevel(levelIdx + 1);
+        };
+        $('#modal').classList.remove('hidden');
+      } else {
+        // Game complete
+        $('#m-title').textContent = '🏆 終極香蕉神射手！';
+        $('#m-desc').textContent = '太強大了！大象被你餵得飽飽胖胖，小猴子頒發「皇家動物園榮譽象掌門」獎牌給你！';
+        $('#m-stats').style.display = 'block';
+        $('#m-stats').innerHTML = `👑 <b>稱號結算</b>：傳奇香蕉大師 🍌🎯<br>全部關卡完美制霸！`;
+        $('#go').textContent = '重新遊玩 🔄';
+        $('#go').onclick = startGame;
+        $('#modal').classList.remove('hidden');
+      }
+    } else {
+      // Failed level
+      $('#m-title').textContent = '😢 大象還很餓...';
+      $('#m-desc').textContent = `只投進了 ${made} 根香蕉（需要 ${curL.need} 根）。不要氣餒，再試一次吧！`;
+      $('#m-stats').style.display = 'block';
+      $('#m-stats').innerHTML = `稱號：<b>把香蕉當迴力鏢的人 🪃</b>`;
+      $('#go').textContent = '重新挑戰本關 🔄';
+      $('#go').onclick = () => {
+        $('#modal').classList.add('hidden');
+        initLevel(levelIdx);
+      };
+      $('#modal').classList.remove('hidden');
+    }
+  }, 1200);
+}
+
+// ================================================================
+// ⑦ 輸入處理 (滑鼠拖曳、觸控滑動、按鈕蓄力、空白鍵)
+// ================================================================
+let isPointerDown = false;
+let startPointer = { x: 0, y: 0 };
+
+function onPointerStart(e) {
+  if (camMode === 'orbit') return;
+  if (state !== 'play' || left <= 0) return;
+  if (e.target && e.target.closest && e.target.closest('#hud, #cam-presets, #hold-btn, #mute-btn, #modal, button')) return;
+  isPointerDown = true;
+  startPointer.x = e.clientX || (e.touches && e.touches[0].clientX) || 0;
+  startPointer.y = e.clientY || (e.touches && e.touches[0].clientY) || 0;
+  charging = true;
+  power = 0.3;
+}
+
+function onPointerMove(e) {
+  if (!isPointerDown || !charging) return;
+  const cx = e.clientX || (e.touches && e.touches[0].clientX) || 0;
+  const cy = e.clientY || (e.touches && e.touches[0].clientY) || 0;
+  const dy = cy - startPointer.y;
+  const dx = cx - startPointer.x;
+  
+  // Dragging backwards increases power
+  power = clamp(dy / (innerHeight * 0.35), 0.1, 1.0);
+  aimX = clamp(-dx / (innerWidth * 0.4), -1.0, 1.0);
+  $('#power-bar').style.height = `${power * 100}%`;
+}
+
+function onPointerEnd() {
+  if (!charging) return;
+  isPointerDown = false;
+  charging = false;
+  $('#power-bar').style.height = '0%';
+  trajLine.visible = false;
+  launchBanana();
+}
+
+window.addEventListener('mousedown', onPointerStart);
+window.addEventListener('mousemove', onPointerMove);
+window.addEventListener('mouseup', onPointerEnd);
+
+window.addEventListener('touchstart', onPointerStart, { passive: true });
+window.addEventListener('touchmove', onPointerMove, { passive: true });
+window.addEventListener('touchend', onPointerEnd);
+
+// Mobile button hold-to-charge
+const holdBtn = $('#hold-btn');
+let btnInterval = null;
+holdBtn.addEventListener('pointerdown', (e) => {
+  e.stopPropagation();
+  if (state !== 'play' || left <= 0) return;
+  charging = true;
+  power = 0.2;
+  powerDir = 1;
+  holdBtn.classList.add('pressed');
+  btnInterval = setInterval(() => {
+    power += 0.04 * powerDir;
+    if (power >= 1.0) { power = 1.0; powerDir = -1; }
+    if (power <= 0.2) { power = 0.2; powerDir = 1; }
+    $('#power-bar').style.height = `${power * 100}%`;
+  }, 30);
+});
+
+holdBtn.addEventListener('pointerup', (e) => {
+  e.stopPropagation();
+  if (!charging) return;
+  clearInterval(btnInterval);
+  holdBtn.classList.remove('pressed');
+  charging = false;
+  $('#power-bar').style.height = '0%';
+  launchBanana();
+});
+
+// Spacebar support
+window.addEventListener('keydown', (e) => {
+  if (e.code === 'Space' && !e.repeat && state === 'play') {
+    charging = true;
+    power = 0.55;
+    $('#power-bar').style.height = '55%';
+  }
+});
+window.addEventListener('keyup', (e) => {
+  if (e.code === 'Space' && charging) {
+    charging = false;
+    $('#power-bar').style.height = '0%';
+    launchBanana();
+  }
+});
+
+// ================================================================
+// ⑧ 主動畫循環 (Render Loop)
+// ================================================================
+let lastTime = performance.now();
+
+function animate() {
+  requestAnimationFrame(animate);
+  const now = performance.now();
+  const dt = Math.min((now - lastTime) / 1000, 0.05);
+  lastTime = now;
+  gameTime += dt;
+
+  // Elephant Animation & Swaying
+  if (elephantRoot && state === 'play') {
+    const curL = LEVELS[levelIdx];
+    // Gentle breathing
+    const breath = Math.sin(gameTime * 2.5) * 0.015;
+    elephantRoot.position.y = breath;
+    
+    // Sway left-right if moving level
+    if (curL.swayAmp > 0) {
+      elephantRoot.position.x = Math.sin(gameTime * curL.swaySpeed) * curL.swayAmp;
+    } else {
+      elephantRoot.position.x = 0;
+    }
+  }
+
+  // Monkey idle breathing / waving
+  if (monkeyRoot) {
+    monkeyRoot.position.y = Math.sin(gameTime * 3.0) * 0.015;
+  }
+
+  // Update Trajectory
+  updateTrajectory();
+
+  // Step active bananas
+  for (let i = bananas.length - 1; i >= 0; i--) {
+    stepBanana(bananas[i], dt);
+  }
+
+  // Update Confetti Particles
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.life -= dt * 1.2;
+    p.vel.y -= G * 0.6 * dt;
+    p.m.position.addScaledVector(p.vel, dt);
+    p.m.rotation.z += p.rot * dt;
+    p.m.scale.setScalar(p.life);
+    if (p.life <= 0) {
+      scene.remove(p.m);
+      p.m.geometry.dispose();
+      particles.splice(i, 1);
+    }
+  }
+
+  // Update OrbitControls
+  controls.update();
+
+  // Update global test state
+  window.game = { state, made, left, level: levelIdx, combo };
+  window.__ok = true;
+
+  renderer.render(scene, camera);
+}
+
+// Start
+loadModels();
+animate();
+</script>
+</body>
+</html>
